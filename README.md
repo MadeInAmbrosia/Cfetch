@@ -14,7 +14,7 @@ git (for install)
 
 ## Install guide
 
-- Clone the repository: ```git clone https://github.com/catowner-sudo/cafetch```
+- Clone the repository: ```git clone https://github.com/catowner-sudo/cafetch.git```
 - Navigate to the directory: ```cd cafetch```
 - Build and install: ```makepkg -si```
 - Now you can run ```cafetch``` anywhere!
