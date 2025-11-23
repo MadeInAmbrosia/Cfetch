@@ -4,6 +4,8 @@ Using GNU GPLv3 License.
 
 (note this doesnt list system hardware components like CPU, GPU, and memory.)
 
+<img src="screenshots/banner.png" alt="Banner" width="300"/>
+
 ## Dependencies:
 ```
 make
