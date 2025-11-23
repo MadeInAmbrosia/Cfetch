@@ -122,4 +122,5 @@ func main() {
 	fmt.Printf("Icon Theme: %s\n", icon)
 	fmt.Printf("Uptime: %s\n", uptime)
 	fmt.Printf("Kernel: %s\n", kernel)
+	fmt.Println()
 }
