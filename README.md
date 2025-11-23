@@ -6,6 +6,7 @@ Using GNU GPLv3 License.
 
 ## Dependencies:
 ```
+make
 go
 git (for install)
 ```
