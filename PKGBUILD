@@ -6,7 +6,7 @@ arch=('x86_64')
 url="https://github.com/idislikeubuntu/cafetch"
 license=('MIT')
 depends=('glibc')
-makedepends=('gcc')
+makedepends=('gcc' 'lsb-release')
 source=("cafetch.c" "README.md" "LICENSE")
 sha256sums=('SKIP' 'SKIP' 'SKIP')
 
