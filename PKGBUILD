@@ -1,21 +1,21 @@
 pkgname=cafetch
-pkgver=1.0.0
-pkgrel=1
-pkgdesc="A fast system information fetcher written in Go"
+pkgver=2.0.0
+pkgrel=2
+pkgdesc="cafetch"
 arch=('x86_64')
-url="https://github.com/catowner-sudo/cafetch"
+url="https://github.com/idislikeubuntu/cafetch"
 license=('MIT')
-depends=('go')
-makedepends=('git')
-source=("git+https://github.com/catowner-sudo/cafetch.git")
-md5sums=('SKIP')
+depends=('glibc')
+makedepends=('gcc')
+source=("cafetch.c" "README.md" "LICENSE")
+sha256sums=('SKIP' 'SKIP' 'SKIP')
 
 build() {
-    cd "$srcdir/cafetch"
-    go build -o cafetch
+  gcc cafetch.c -o cafetch
 }
 
 package() {
-    cd "$srcdir/cafetch"
-    install -Dm755 cafetch "$pkgdir/usr/bin/cafetch"
+  install -Dm755 cafetch "$pkgdir/usr/bin/cafetch"
+  install -Dm644 "$srcdir/README.md" "$pkgdir/usr/share/doc/cafetch/README.md"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/cafetch/LICENSE"
 }
