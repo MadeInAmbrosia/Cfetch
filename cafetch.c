@@ -6,7 +6,7 @@
 #include <sys/utsname.h>
 #include <sys/statvfs.h>
 
-#define INFO_LINES 16
+#define INFO_LINES 20
 #define ASCII_LINES 8
 #define C_CYAN   "\033[1;36m"
 #define C_RESET  "\033[0m"
@@ -24,15 +24,16 @@ void get_display_server(char *server, size_t size) {
     if (getenv("WAYLAND_DISPLAY")) strncpy(server, "Wayland", size);
     else if (getenv("DISPLAY")) {
         if (access("/usr/bin/XLibre", F_OK) == 0) strncpy(server, "XLibre (X11)", size);
-        else if (access("/usr/bin/Xorg", F_OK) == 0) strncpy(server, "Xorg (X11)", size);
-        else strncpy(server, "X11", size);
-    } else strncpy(server, "TTY/None", size);
+        else strncpy(server, "Xorg (X11)", size);
+    } else {
+        if (access("/tmp/.X11-unix/X0", F_OK) == 0) strncpy(server, "X11 (Socket)", size);
+        else strncat(server, "TTY/None", size);
+    }
 }
 
 void get_de_wm(char *de, size_t size) {
     char *xdg_de = getenv("XDG_CURRENT_DESKTOP");
     char *xdg_sess = getenv("DESKTOP_SESSION");
-    
     if (xdg_de) strncpy(de, xdg_de, size);
     else if (xdg_sess) strncpy(de, xdg_sess, size);
     else {
@@ -56,8 +57,34 @@ void get_init_system(char *init, size_t size) {
     else strncpy(init, comm, size);
 }
 
+void get_gpu_info(char *gpu_name, size_t size) {
+    char vendor_id[16] = "";
+    char device_path[64];
+    int found = 0;
+    gpu_name[0] = '\0';
+    for (int i = 0; i <= 1; i++) {
+        snprintf(device_path, sizeof(device_path), "/sys/class/drm/card%d/device/vendor", i);
+        FILE *fp = fopen(device_path, "r");
+        if (fp) {
+            if (fgets(vendor_id, sizeof(vendor_id), fp)) {
+                char current_gpu[64];
+                if (strstr(vendor_id, "0x10de")) strcpy(current_gpu, "NVIDIA [dGPU]");
+                else if (strstr(vendor_id, "0x8086")) strcpy(current_gpu, "Intel [iGPU]");
+                else if (strstr(vendor_id, "0x1002")) strcpy(current_gpu, "AMD [dGPU]");
+                else if (strstr(vendor_id, "0x15ad")) strcpy(current_gpu, "VBox/VMware");
+                else snprintf(current_gpu, sizeof(current_gpu), "GPU (%s)", vendor_id);
+                if (found > 0) strncat(gpu_name, " | ", size - strlen(gpu_name) - 1);
+                strncat(gpu_name, current_gpu, size - strlen(gpu_name) - 1);
+                found++;
+            }
+            fclose(fp);
+        }
+    }
+    if (found == 0) strncpy(gpu_name, "N/A", size);
+}
+
 int main() {
-    char user[64], host[64], os[128], cpu[128], model[128], battery[64], gpu[128], init[64], display[64], de[64];
+    char user[64], host[64], os[128], cpu[256], model[128], battery[64], gpu[128], init[64], display[64], de[64];
     struct sysinfo si;
     struct utsname un;
     struct statvfs vfs;
@@ -68,6 +95,7 @@ int main() {
     get_init_system(init, sizeof(init));
     get_display_server(display, sizeof(display));
     get_de_wm(de, sizeof(de));
+    get_gpu_info(gpu, sizeof(gpu));
 
     strncpy(os, "Linux", sizeof(os));
     FILE *f_os = fopen("/etc/os-release", "r");
@@ -85,8 +113,8 @@ int main() {
 
     read_sys_file("/sys/class/dmi/id/product_name", model, sizeof(model));
     
-    FILE *f_cpu = fopen("/proc/cpuinfo", "r");
     cpu[0] = '\0';
+    FILE *f_cpu = fopen("/proc/cpuinfo", "r");
     if (f_cpu) {
         char line[256];
         while (fgets(line, sizeof(line), f_cpu)) {
@@ -100,15 +128,10 @@ int main() {
         fclose(f_cpu);
     }
 
-    FILE *f_gpu = fopen("/sys/class/drm/card0/device/vendor", "r");
-    if (f_gpu) {
-        char v_id[16]; fgets(v_id, sizeof(v_id), f_gpu); fclose(f_gpu);
-        if (strstr(v_id, "0x10de")) strcpy(gpu, "NVIDIA");
-        else if (strstr(v_id, "0x8086")) strcpy(gpu, "Intel");
-        else if (strstr(v_id, "0x1002")) strcpy(gpu, "AMD");
-        else if (strstr(v_id, "0x15ad")) strcpy(gpu, "VMware/VBox");
-        else strcpy(gpu, "Unknown");
-    } else strcpy(gpu, "N/A");
+    char bat_cap[16] = "";
+    read_sys_file("/sys/class/power_supply/BAT0/capacity", bat_cap, sizeof(bat_cap));
+    if (strcmp(bat_cap, "N/A") != 0) snprintf(battery, sizeof(battery), "%s%%", bat_cap);
+    else strcpy(battery, "Desktop/AC");
 
     statvfs("/", &vfs);
     unsigned long d_t = (vfs.f_blocks * vfs.f_frsize) / 1024 / 1024 / 1024;
@@ -127,6 +150,7 @@ int main() {
     snprintf(info[c++], 256, C_CYAN C_BOLD "%s" C_RESET "@" C_CYAN C_BOLD "%s" C_RESET, user, host);
     snprintf(info[c++], 256, "------------------");
     snprintf(info[c++], 256, C_CYAN "OS:      " C_RESET "%s", os);
+    snprintf(info[c++], 256, C_CYAN "Model:   " C_RESET "%s", model);
     snprintf(info[c++], 256, C_CYAN "Kernel:  " C_RESET "%s", un.release);
     snprintf(info[c++], 256, C_CYAN "Display: " C_RESET "%s", display);
     snprintf(info[c++], 256, C_CYAN "DE/WM:   " C_RESET "%s", de);
@@ -136,6 +160,7 @@ int main() {
     snprintf(info[c++], 256, C_CYAN "GPU:     " C_RESET "%s", gpu);
     snprintf(info[c++], 256, C_CYAN "Memory:  " C_RESET "%luMiB / %luMiB", m_u, m_t);
     snprintf(info[c++], 256, C_CYAN "Disk:    " C_RESET "%luGB / %luGB", d_u, d_t);
+    snprintf(info[c++], 256, C_CYAN "Battery: " C_RESET "%s", battery);
     snprintf(info[c++], 256, "");
     
     char blocks[256] = "";
@@ -147,9 +172,15 @@ int main() {
     strcat(blocks, C_RESET);
     strncpy(info[c++], blocks, 256);
 
+    int padding_top = (c > ASCII_LINES) ? (c - ASCII_LINES) / 2 : 0;
+
     printf("\n");
     for (int i = 0; i < c || i < ASCII_LINES; i++) {
-        printf("  %-15s %s\n", (i < ASCII_LINES) ? art[i] : "", (i < c) ? info[i] : "");
+        const char *line_art = "              ";
+        if (i >= padding_top && i < padding_top + ASCII_LINES) {
+            line_art = art[i - padding_top];
+        }
+        printf("  %-15s %s\n", line_art, (i < c) ? info[i] : "");
     }
     printf("\n");
 
